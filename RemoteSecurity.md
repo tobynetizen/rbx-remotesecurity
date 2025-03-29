@@ -1,87 +1,62 @@
 ## > RemoteSecurity.md
 ### Introduction
+Remote events are an instance in Roblox that allow communication between client and server scripts.
+Exploiters have the ability to view this communication and even modify data sent from the client using a remote event.
 Let's say you wanted to obfuscate the communication of remote event traffic between the client and the server.
+
 ### Setup
-1. Create one client script
-2. Create one server script
+1. Create a local script in StarterPlayerScripts
+2. Create a server script in ServerScriptService
 3. Create a remote storage folder in ReplicatedStorage
-4. Populate the folder with remote events and remote functions that have no name
+4. Populate the folder with remote events and remote functions that have an empty name
+
 ### Server
 When the server is started, you have a small window to initialize everything before the client connects.
 This is important because we want to avoid any possibility of the user being able to call a remote spy before the first initial call to the client.
 
-Firslty, you would want a custom UUID module so you don't overload Roblox's servers with HttpService requests.
+Firstly, you would want a custom GUID module so you don't overload Roblox's servers with HttpService requests.
 An example of that looks like this:
 ```lua
 local GUID = {}
 
+-- Formats a number into a two-character hexadecimal string
 function GUID:Format(Number)
-	if Number > 255 then return nil end
-	if Number <= 15 then
-		return "0" .. string.upper(string.format("%x", Number))
-	else
-		return string.upper(string.format("%x", Number))
-	end
+    if Number < 0 or Number > 255 then return nil end
+    return string.upper(string.format("%02X", Number))
 end
 
+-- Generates a GUID-like string of the given length
 function GUID:Generate(Length)
-	local Cache = {}
-	local R = ""
-	for i = 1, Length, 1 do
-		task.wait()
-		table.insert(Cache, self:Format(math.random(1, 255)))
-	end
-	for j = 1, #Cache, 1 do
-		R = R .. tostring(Cache[j])
-	end
-	return R
+    math.randomseed(tick())  -- Seed the random generator for better randomness
+    local Cache = {}
+    for _ = 1, Length do
+        table.insert(Cache, self:Format(math.random(0, 255)))
+    end
+    return table.concat(Cache)
 end
 
+-- Generates a full GUID in the format: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 function GUID:GenerateFull()
-	local R = ""
-	local Level1 = {} --> 4
-	local Level2 = {} --> 2
-	local Level3 = {} --> 2
-	local Level4 = {} --> 2
-	local Level5 = {} --> 6
-	
-	local function CallT(Number, Table)
-		for i = 1, Number, 1 do
-			table.insert(Table, tostring(self:Format(math.random(1, 255))))
-		end
-	end
-	
-	local function CallS(Table)
-		if #Table ~= 6 then table.insert(Table, "-") end
-		
-		for i = 1, #Table, 1 do
-			R = R .. tostring(Table[i])
-		end
-	end
-	
-	local function CallA()
-		CallT(4, Level1)
-		CallT(2, Level2)
-		CallT(2, Level3)
-		CallT(2, Level4)
-		CallT(6, Level5)
-		CallS(Level1)
-		CallS(Level2)
-		CallS(Level3)
-		CallS(Level4)
-		CallS(Level5)
-	end
-	
-	CallA()
-	
-	return R
+    math.randomseed(tick())
+    local Sections = {4, 2, 2, 2, 6}  -- GUID format breakdown
+    local Parts = {}
+    
+    for _, length in ipairs(Sections) do
+        local segment = {}
+        for _ = 1, length do
+            table.insert(segment, self:Format(math.random(0, 255)))
+        end
+        table.insert(Parts, table.concat(segment))
+    end
+    
+    return table.concat(Parts, "-")
 end
 
 return GUID
 ```
 
-Using this custom UUID module, set the names of all remotes in the remote storage to a random UUID in a loop.
-When the client invoke's one of these remote functions with a predefined parameter length, create a remote event and return it to the client while parenting it to the remote storage with a random UUID name.
+Using this custom GUID module, set the names of all remotes in the remote storage folder to a random GUID in a loop.
+When the client invokes one of these remote functions with a predefined parameter length, create a remote event and return it to the client while parenting it to the remote storage folder with a random GUID name.
 That would look something like this:
 ```lua
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
@@ -134,7 +109,7 @@ local IDX_6a992d5529f459a44fee58c733255e86 = {
 }
 ```
 
-Next, create a table that can be called as a function by virtue of the __call metamethod.
+Next, create a table that can be called as a function by virtue of the `__call` metamethod.
 This table will be used to fetch a random hash in the hash table.
 Now, in order to get that remote event from the server we need to invoke a remote function with a specific parameter size.
 So, we will store that predefined amount of hashes in the same table we call to get the hashes.
