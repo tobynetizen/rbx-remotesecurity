@@ -1,4 +1,4 @@
-## > RemoteSecurity.md
+## RemoteSecurity.md
 ### Introduction
 Remote events are an instance in Roblox that allow communication between client and server scripts.
 Exploiters have the ability to view this communication and even modify data sent from the client using a remote event.
